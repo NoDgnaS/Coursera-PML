@@ -1,0 +1,163 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Sangdon Choi"
+date: '2018 10 26 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Background
+----------
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+Data
+----
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+
+Data Loading and Analysis Process
+---------------------------------
+
+1. Loading Libraries for Analysis
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(gbm)
+library(plyr)
+set.seed(201810)
+```
+
+2. explore the data.
+
+```{r}
+training <- read.csv("./pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testing <- read.csv("./pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+```
+
+```{r}
+dim(training)
+dim(testing)
+```
+
+Both data sets have 160 variables.
+We remove the near zero variance variable or column containing the N/A missing values.
+
+```{r}
+
+training <-training[,colSums(is.na(training)) == 0]
+testing <-testing[,colSums(is.na(testing)) == 0]
+
+training <-training[,-c(1:7)]
+testing <-testing[,-c(1:7)]
+```
+
+```{r}
+dim(training)
+dim(testing)
+```
+
+
+Dataset Partition
+-----------------
+
+```{r}
+PartData <- createDataPartition(training$classe, p=0.7, list=FALSE)
+TrainingData <- training[PartData, ]
+TestingData <- training[-PartData, ]
+```
+
+```{r}
+dim(TrainingData)
+dim(TestingData)
+```
+
+Examine the TrainingData by display Frequency to table
+
+```{r}
+table(TrainingData$classe)
+```
+
+As a result of checking the table, Level A (3,906) is the most frequent and Level D (2,252) is the least frequent.
+
+
+Prediction Models 
+-----------------
+
+1. Using Random Forest
+
+```{r}
+model1 <- randomForest(classe ~., data=TrainingData, method="class")
+prediction1 <- predict(model1, TestingData, Type="class")
+confusionMatrix(prediction1, TestingData$classe)
+```
+
+
+2. Using Generalized Boosted Model
+
+
+```{r}
+fitControl <- trainControl(method="repeatedcv", number=5, repeats=1)
+model2 <- train(classe ~., data=TrainingData, method="gbm", trControl=fitControl, verbose=FALSE)
+prediction2 <- predict(model2, TestingData)
+confusionMatrix(prediction2, TestingData$classe)
+```
+
+Accouray
+
+Random forest : 0.9951
+Generalized Boosted : 0.9609
+
+Random Forest is more accurate than Generalized Boosted.
+
+
+Quiz results.
+-------------
+
+```{r}
+predictTest <- predict(model1, testing)
+predictTest
+```
+
+Submission
+----------
+
+```{r}
+# Create files for submission
+pml_write_files = function(x){
+n = length(x)
+for(i in 1:n){
+filename = paste0("problem_id_",i,".txt")
+write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+}
+}
+pml_write_files(predictTest)
+```
+
+
+
+
+
+
+
+
+
+
